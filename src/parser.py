@@ -279,7 +279,7 @@ def extract_coordinates(script_text):
 def calculate_duration(start_stop, end_stop):
     start_hour, start_minute = map(int, start_stop.split(':'))
     end_hour, end_minute = map(int, end_stop.split(':'))
-    return (end_hour * 60 + end_minute) - (start_hour * 60 + start_minute)
+    return abs((end_hour * 60 + end_minute) - (start_hour * 60 + start_minute))
 
 
 def are_stops_same(coord1, coord2, tolerance=0.005):

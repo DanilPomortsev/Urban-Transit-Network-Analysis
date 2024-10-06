@@ -127,7 +127,7 @@ class RoadGraphDBManager(GraphDBManager):
 
     def get_bd_all_rels_query_graph(self):
         return f'''
-        MATCH (u:Stop)-[r:RouteSegment]->(v:Stop) 
+        MATCH (u:Stop)-[r:RoadSegment]->(v:Stop) 
         RETURN
             u.osmid AS first_osmid, 
             v.osmid AS second_osmid, 

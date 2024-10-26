@@ -4,6 +4,7 @@ import math
 import os
 import re
 import time
+from abc import abstractmethod
 
 import requests
 from bs4 import BeautifulSoup
@@ -14,26 +15,25 @@ site_url = "https://kudikina.ru"
 map_url = "/map"
 timetable_forward_url = "/A"
 timetable_backward_url = "/B"
-all_bus_route = "bus/"
 # TODO: need to update according to city coordinates
 city_avg_x_coordinate = 60.0
 city_avg_y_coordinate = 30.0
 request_pause_sec = 2
 
+class AbstractTransportGraphParser:
 
-class BusGraphParser:
     def __init__(self, city_name):
         self.city_name = city_name
         self.city_url = self.__get_city_url()
-        self.all_routes_info = self.__get_all_routes_info()
         self.nodes = {}
         self.relationships = []
+        self.transport_url = self.get_transport_url()
 
     def parse(self):
         if self.city_url is None:
             return None, None
 
-        for route_info in self.all_routes_info:
+        for route_info in self.get_all_routes_info():
             route_name = route_info[0]
             route_url = route_info[2]
 
@@ -57,27 +57,33 @@ class BusGraphParser:
         return city_url
 
     def __add_stops_and_routes(self, route_name, route_url):
-        (timetable, successes_parse) = get_timetable(route_url)
+        (timetable, successes_parse) = self.get_timetable(route_url)
         if successes_parse is False:
             return
 
-        stop_coordinates = get_stop_coordinates(route_url)
+        stop_coordinates = self.get_stop_coordinates(route_url)
         last_coordinate = Coordinate(city_avg_x_coordinate, city_avg_y_coordinate)
-        previous_bus_stop = None
+        previous_transport_stop_name = None
         previous_time_point = None
 
         for row in timetable:
-            bus_stop_name = row["stopName"]
+            transport_stop_name = row["stopName"]
             time_point = row["timePoint"]
-            coordinate = self.__get_filled_coordinate(stop_coordinates, bus_stop_name, last_coordinate)
+            coordinate = self.__get_filled_coordinate(stop_coordinates, transport_stop_name, last_coordinate)
 
-            bus_stop = self.__update_or_add_stop(bus_stop_name, coordinate, route_name)
+            transport_stop = self.__update_or_add_stop(transport_stop_name, coordinate, route_name)
 
-            if previous_bus_stop is not None:
-                self.__add_route(previous_bus_stop, bus_stop, previous_time_point, time_point, route_name)
+            if previous_transport_stop_name is not None:
+                self.__add_route(
+                    previous_transport_stop_name,
+                    transport_stop,
+                    previous_time_point,
+                    time_point,
+                    route_name
+                )
 
             last_coordinate = coordinate
-            previous_bus_stop = bus_stop
+            previous_transport_stop_name = transport_stop
             previous_time_point = time_point
 
     def __get_filled_coordinate(self, stop_coordinates, stop_name, last_coordinate):
@@ -86,36 +92,36 @@ class BusGraphParser:
             coordinate = Coordinate(last_coordinate.x, last_coordinate.y, True)
         return coordinate
 
-    def __update_or_add_stop(self, bus_stop_name, coordinate, route_name):
+    def __update_or_add_stop(self, transport_stop_name, coordinate, route_name):
 
-        bus_stop_name, is_new_stop = self.__check_and_find_unique_stop(bus_stop_name, coordinate)
+        transport_stop_name, is_new_stop = self.__check_and_find_unique_stop(transport_stop_name, coordinate)
 
         if not is_new_stop:
-            bus_stop = self.nodes.get(bus_stop_name)
-            bus_stop["roteList"].append(route_name)
+            transport_stop = self.nodes.get(transport_stop_name)
+            transport_stop["roteList"].append(route_name)
         else:
-            bus_stop = {
-                "name": bus_stop_name,
+            transport_stop = {
+                "name": transport_stop_name,
                 "roteList": [route_name],
                 "xCoordinate": coordinate.x,
                 "yCoordinate": coordinate.y,
                 "isCoordinateApproximate": coordinate.is_approximate
             }
-            self.nodes[bus_stop_name] = bus_stop
-        return bus_stop
+            self.nodes[transport_stop_name] = transport_stop
+        return transport_stop
 
-    def __check_and_find_unique_stop(self, bus_stop_name, coordinate):
+    def __check_and_find_unique_stop(self, transport_stop_name, coordinate):
         is_new_stop = True
-        while self.nodes.get(bus_stop_name) is not None:
-            bus_stop = self.nodes[bus_stop_name]
-            old_coordinate = Coordinate(bus_stop["xCoordinate"], bus_stop["yCoordinate"])
+        while self.nodes.get(transport_stop_name) is not None:
+            transport_stop = self.nodes[transport_stop_name]
+            old_coordinate = Coordinate(transport_stop["xCoordinate"], transport_stop["yCoordinate"])
             if are_stops_same(old_coordinate, coordinate):
                 is_new_stop = False
                 break
             else:
-                bus_stop_name = increment_suffix(bus_stop_name)
+                transport_stop_name = increment_suffix(transport_stop_name)
 
-        return bus_stop_name, is_new_stop
+        return transport_stop_name, is_new_stop
 
     def __add_route(self, start_stop, end_stop, start_time, end_time, route_name):
         if start_stop is not None and end_stop is not None:
@@ -126,11 +132,32 @@ class BusGraphParser:
                                        "duration": calculate_duration(start_time, end_time)
                                        })
 
-    def __get_all_routes_info(self):
+    @abstractmethod
+    def get_all_routes_info(self):
+        pass
+
+    @abstractmethod
+    def get_transport_url(self):
+        pass
+
+    @abstractmethod
+    def get_timetable(self, route_url):
+        pass
+
+    @abstractmethod
+    def get_stop_coordinates(self, route_url):
+        pass
+
+
+class BusGraphParser(AbstractTransportGraphParser):
+
+    def get_transport_url(self):
+        return "bus/"
+    def get_all_routes_info(self):
         if self.city_url is None:
             return []
 
-        full_url = site_url + self.city_url + all_bus_route
+        full_url = site_url + self.city_url + self.transport_url
 
         response = requests.get(full_url)
         html = response.text
@@ -145,6 +172,71 @@ class BusGraphParser:
             href_link = item["href"]
             bus_list.append([bus_number, bus_route, href_link])
         return bus_list
+
+    def get_timetable(self, route_url):
+        (timetable1, successes_parse1) = self.get_one_direction_timetable(route_url, timetable_forward_url)
+        (timetable2, successes_parse2) = self.get_one_direction_timetable(route_url, timetable_backward_url)
+        if successes_parse1 and successes_parse2:
+            return timetable1 + timetable2, True
+        else:
+            return None, False
+
+
+    def get_one_direction_timetable(self, route_url, timetable_url):
+        full_url = site_url + route_url + timetable_url
+
+        response = requests.get(full_url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        stop_times = []
+        for stop_div in soup.find_all('div', class_='bus-stop'):
+            name = stop_div.find('a').text.strip()
+            time_point = stop_div.find_next_sibling('div', class_='col-xs-12').find('span')
+            if time_point is not None:
+                parsed_time_point = time_point.text.strip()
+                if parsed_time_point[len(parsed_time_point) - 1] == 'K':
+                    parsed_time_point = parsed_time_point[:-1]
+            else:
+                return None, False
+            clean_name = re.sub(r"\d+\) ", "", name)
+            stop_times.append({"stopName": clean_name, "timePoint": parsed_time_point})
+        return stop_times, True
+
+
+    def get_stop_coordinates(self, route_url):
+        full_url = site_url + route_url + map_url
+        response = requests.get(full_url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        script_tags = soup.find_all('script', type="text/javascript")
+        script_tag = None
+
+        for tag in script_tags:
+            if 'drawMap' in tag.text:
+                script_tag = tag
+                break
+
+        if script_tag:
+            script_text = script_tag.text
+            coordinates = self.extract_coordinates(script_text)
+
+            return coordinates
+        else:
+            return {}
+
+
+    def extract_coordinates(self, script_text):
+        matches = re.findall(r'{"name":\s*"(.*?)",\s*"lat":\s*(-?\d+\.?\d*),?\s*"long":\s*(-?\d+\.?\d*)?}', script_text)
+
+        coordinates = {}
+        for match in matches:
+            name = match[0].replace("\\", "")
+            # `match` contains latitude and longitude which equals to y and x coordinates
+            x = float(match[2])
+            y = float(match[1])
+            coordinates[name] = Coordinate(x, y)
+
+        return coordinates
 
 
 class Coordinate:
@@ -210,73 +302,6 @@ def parse_all_city_urls():
                     print(city_href + ' Was parsed')
     return cities
 
-
-def get_timetable(route_url):
-    (timetable1, successes_parse1) = get_one_direction_timetable(route_url, timetable_forward_url)
-    (timetable2, successes_parse2) = get_one_direction_timetable(route_url, timetable_backward_url)
-    if successes_parse1 and successes_parse2:
-        return timetable1 + timetable2, True
-    else:
-        return None, False
-
-
-def get_one_direction_timetable(route_url, timetable_url):
-    full_url = site_url + route_url + timetable_url
-
-    response = requests.get(full_url)
-    soup = BeautifulSoup(response.text, 'html.parser')
-
-    stop_times = []
-    for stop_div in soup.find_all('div', class_='bus-stop'):
-        name = stop_div.find('a').text.strip()
-        time_point = stop_div.find_next_sibling('div', class_='col-xs-12').find('span')
-        if time_point is not None:
-            parsed_time_point = time_point.text.strip()
-            if parsed_time_point[len(parsed_time_point) - 1] == 'K':
-                parsed_time_point = parsed_time_point[:-1]
-        else:
-            return None, False
-        clean_name = re.sub(r"\d+\) ", "", name)
-        stop_times.append({"stopName": clean_name, "timePoint": parsed_time_point})
-    return stop_times, True
-
-
-def get_stop_coordinates(route_url):
-    full_url = site_url + route_url + map_url
-    response = requests.get(full_url)
-    soup = BeautifulSoup(response.text, 'html.parser')
-
-    script_tags = soup.find_all('script', type="text/javascript")
-    script_tag = None
-
-    for tag in script_tags:
-        if 'drawMap' in tag.text:
-            script_tag = tag
-            break
-
-    if script_tag:
-        script_text = script_tag.text
-        coordinates = extract_coordinates(script_text)
-
-        return coordinates
-    else:
-        return {}
-
-
-def extract_coordinates(script_text):
-    matches = re.findall(r'{"name":\s*"(.*?)",\s*"lat":\s*(-?\d+\.?\d*),?\s*"long":\s*(-?\d+\.?\d*)?}', script_text)
-
-    coordinates = {}
-    for match in matches:
-        name = match[0].replace("\\", "")
-        # `match` contains latitude and longitude which equals to y and x coordinates
-        x = float(match[2])
-        y = float(match[1])
-        coordinates[name] = Coordinate(x, y)
-
-    return coordinates
-
-
 def calculate_duration(start_stop, end_stop):
     start_hour, start_minute = map(int, start_stop.split(':'))
     end_hour, end_minute = map(int, end_stop.split(':'))
@@ -286,7 +311,6 @@ def calculate_duration(start_stop, end_stop):
 def are_stops_same(coord1, coord2, tolerance=0.005):
     distance = math.dist(coord1.get_xy(), coord2.get_xy())
     return abs(distance) < tolerance
-
 
 def increment_suffix(name):
     if name and name[-1].isdigit():

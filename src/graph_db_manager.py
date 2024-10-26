@@ -91,7 +91,7 @@ class RoadGraphDBManager(GraphDBManager):
         return f'''
         UNWIND $rows AS row
         WITH row WHERE row.osmid IS NOT NULL
-        MERGE (i:{self.get_node_name()} {{osmid: row.osmid}})
+        MERGE (i:{self.node_name} {{osmid: row.osmid}})
             SET i.location = point({{latitude: row.y, longitude: row.x }}),
                 i.highway = row.highway,
                 i.tram = row.tram,
@@ -106,7 +106,7 @@ class RoadGraphDBManager(GraphDBManager):
         UNWIND $rows AS path
         MATCH (u:{self.node_name} {{osmid: path.u}})
         MATCH (v:{self.node_name} {{osmid: path.v}})
-        MERGE (u)-[r:{self.rels_name()} {{osmid: path.osmid}}]->(v)
+        MERGE (u)-[r:{self.rels_name} {{osmid: path.osmid}}]->(v)
             SET r.name = path.name,
                 r.highway = path.highway,
                 r.railway = path.railway,
@@ -208,7 +208,7 @@ class BusGraphDBManager(GraphDBManager):
 
     def get_bd_all_rels_query_graph(self):
         return f'''
-        MATCH (u:Stop)-[r:RouteSegment]->(v:Stop) 
+        MATCH (u:Stop)-[r:{self.rels_name}]->(v:Stop) 
         RETURN
             u.name AS first_stop_name, 
             v.name AS second_stop_name, 

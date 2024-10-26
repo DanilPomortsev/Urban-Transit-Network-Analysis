@@ -8,11 +8,12 @@ from parser import BusGraphParser
 
 
 class GraphDBManager:
-    def __init__(self, node_name, relationship_name):
-        self.node_name = node_name
-        self.relationship_name = relationship_name
+    def __init__(self):
         self.connection = Neo4jConnection()
         self.constraints = []
+        self.node_name = self.get_node_name()
+        self.rels_name = self.get_rels_name()
+        self.weight = self.get_weight()
 
     def update_db(self, city_name):
         (nodes, relationships) = self.get_graph(city_name)
@@ -33,6 +34,18 @@ class GraphDBManager:
 
     @abstractmethod
     def get_bd_all_rels_query_graph(self):
+        pass
+
+    @abstractmethod
+    def get_node_name(self):
+        pass
+
+    @abstractmethod
+    def get_rels_name(self):
+        pass
+
+    @abstractmethod
+    def get_weight(self):
         pass
 
     def get_bd_all_node_graph(self):
@@ -78,7 +91,7 @@ class RoadGraphDBManager(GraphDBManager):
         return f'''
         UNWIND $rows AS row
         WITH row WHERE row.osmid IS NOT NULL
-        MERGE (i:{self.node_name} {{osmid: row.osmid}})
+        MERGE (i:{self.get_node_name()} {{osmid: row.osmid}})
             SET i.location = point({{latitude: row.y, longitude: row.x }}),
                 i.highway = row.highway,
                 i.tram = row.tram,
@@ -93,7 +106,7 @@ class RoadGraphDBManager(GraphDBManager):
         UNWIND $rows AS path
         MATCH (u:{self.node_name} {{osmid: path.u}})
         MATCH (v:{self.node_name} {{osmid: path.v}})
-        MERGE (u)-[r:{self.relationship_name} {{osmid: path.osmid}}]->(v)
+        MERGE (u)-[r:{self.rels_name()} {{osmid: path.osmid}}]->(v)
             SET r.name = path.name,
                 r.highway = path.highway,
                 r.railway = path.railway,
@@ -108,7 +121,7 @@ class RoadGraphDBManager(GraphDBManager):
     def get_constraint_list(self):
         return [
             f"CREATE CONSTRAINT IF NOT EXISTS FOR (i:{self.node_name}) REQUIRE i.osmid IS UNIQUE",
-            f"CREATE INDEX IF NOT EXISTS FOR ()-[r:{self.relationship_name}]-() ON r.osmid"
+            f"CREATE INDEX IF NOT EXISTS FOR ()-[r:{self.rels_name}]-() ON r.osmid"
         ]
 
     def get_bd_all_node_query_graph(self):
@@ -141,6 +154,16 @@ class RoadGraphDBManager(GraphDBManager):
             r.length AS length
         '''
 
+    def get_node_name(self):
+        return "Intersection"
+
+    def get_rels_name(self):
+        return "RoadSegment"
+
+    def get_weight(self):
+        return "length"
+
+
 
 class BusGraphDBManager(GraphDBManager):
 
@@ -165,8 +188,9 @@ class BusGraphDBManager(GraphDBManager):
             UNWIND $rows AS path
             MATCH (u:{self.node_name} {{name: path.startStop}})
             MATCH (v:{self.node_name} {{name: path.endStop}})
-            MERGE (u)-[r:{self.relationship_name} {{name: path.name}}]->(v)
-                SET r.duration = path.duration
+            MERGE (u)-[r:{self.rels_name} {{name: path.name}}]->(v)
+                SET r.duration = path.duration,
+                    r.route = path.route
             RETURN COUNT(*) AS total
         '''
 
@@ -194,8 +218,17 @@ class BusGraphDBManager(GraphDBManager):
     def get_constraint_list(self):
         return [
             f"CREATE CONSTRAINT IF NOT EXISTS FOR (s:{self.node_name}) REQUIRE s.name IS UNIQUE",
-            f"CREATE INDEX IF NOT EXISTS FOR ()-[r:{self.relationship_name}]-() ON r.name"
+            f"CREATE INDEX IF NOT EXISTS FOR ()-[r:{self.rels_name}]-() ON r.name"
         ]
+
+    def get_node_name(self):
+        return "BusStop"
+
+    def get_rels_name(self):
+        return "BusRouteSegment"
+
+    def get_weight(self):
+        return "duration"
 
 
 def insert_data(tx, query, rows, batch_size=10000):

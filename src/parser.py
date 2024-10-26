@@ -238,6 +238,94 @@ class BusGraphParser(AbstractTransportGraphParser):
 
         return coordinates
 
+class TrolleyGraphParser(AbstractTransportGraphParser):
+    def get_transport_url(self):
+        return "trolley/"
+    def get_all_routes_info(self):
+        if self.city_url is None:
+            return []
+
+        full_url = site_url + self.city_url + self.transport_url
+
+        response = requests.get(full_url)
+        html = response.text
+        soup = BeautifulSoup(html, "html.parser")
+
+        trolley_list = []
+
+        trolley_items = soup.find_all("a", class_="bus-item trolley-icon")
+        for item in trolley_items:
+            trolley_number = item.text.strip()
+            trolley_route = item.find("span").text.strip()
+            href_link = item["href"]
+            trolley_list.append([trolley_number, trolley_route, href_link])
+        return trolley_list
+
+    def get_timetable(self, route_url):
+        (timetable1, successes_parse1) = self.get_one_direction_timetable(route_url, timetable_forward_url)
+        (timetable2, successes_parse2) = self.get_one_direction_timetable(route_url, timetable_backward_url)
+        if successes_parse1 and successes_parse2:
+            return timetable1 + timetable2, True
+        else:
+            return None, False
+
+
+    def get_one_direction_timetable(self, route_url, timetable_url):
+        full_url = site_url + route_url + timetable_url
+
+        response = requests.get(full_url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        stop_times = []
+        for stop_div in soup.find_all('div', class_='bus-stop'):
+            name = stop_div.find('a').text.strip()
+            time_point = stop_div.find_next_sibling('div', class_='col-xs-12').find('span')
+            if time_point is not None:
+                parsed_time_point = time_point.text.strip()
+                if parsed_time_point[len(parsed_time_point) - 1] == 'K':
+                    parsed_time_point = parsed_time_point[:-1]
+            else:
+                return None, False
+            clean_name = re.sub(r"\d+\) ", "", name)
+            stop_times.append({"stopName": clean_name, "timePoint": parsed_time_point})
+        return stop_times, True
+
+
+    def get_stop_coordinates(self, route_url):
+        full_url = site_url + route_url + map_url
+        response = requests.get(full_url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        script_tags = soup.find_all('script', type="text/javascript")
+        script_tag = None
+
+        for tag in script_tags:
+            if 'drawMap' in tag.text:
+                script_tag = tag
+                break
+
+        if script_tag:
+            script_text = script_tag.text
+            coordinates = self.extract_coordinates(script_text)
+
+            return coordinates
+        else:
+            return {}
+
+
+    def extract_coordinates(self, script_text):
+        matches = re.findall(r'{"name":\s*"(.*?)",\s*"lat":\s*(-?\d+\.?\d*),?\s*"long":\s*(-?\d+\.?\d*)?}', script_text)
+
+        coordinates = {}
+        for match in matches:
+            name = match[0].replace("\\", "")
+            # `match` contains latitude and longitude which equals to y and x coordinates
+            x = float(match[2])
+            y = float(match[1])
+            coordinates[name] = Coordinate(x, y)
+
+        return coordinates
+
 
 class Coordinate:
     def __init__(self, x=None, y=None, is_approximate=False):

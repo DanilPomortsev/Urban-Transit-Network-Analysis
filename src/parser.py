@@ -74,7 +74,7 @@ class BusGraphParser:
             bus_stop = self.__update_or_add_stop(bus_stop_name, coordinate, route_name)
 
             if previous_bus_stop is not None:
-                self.__add_route(previous_bus_stop, bus_stop, previous_time_point, time_point)
+                self.__add_route(previous_bus_stop, bus_stop, previous_time_point, time_point, route_name)
 
             last_coordinate = coordinate
             previous_bus_stop = bus_stop
@@ -117,11 +117,12 @@ class BusGraphParser:
 
         return bus_stop_name, is_new_stop
 
-    def __add_route(self, start_stop, end_stop, start_time, end_time):
+    def __add_route(self, start_stop, end_stop, start_time, end_time, route_name):
         if start_stop is not None and end_stop is not None:
             self.relationships.append({"startStop": start_stop["name"],
                                        "endStop": end_stop["name"],
-                                       "name": start_stop["name"] + " -> " + end_stop["name"],
+                                       "name": start_stop["name"] + " -> " + end_stop["name"] + "route_name: " + route_name,
+                                       "route": route_name,
                                        "duration": calculate_duration(start_time, end_time)
                                        })
 

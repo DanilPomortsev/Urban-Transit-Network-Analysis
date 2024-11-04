@@ -74,6 +74,72 @@ class GraphDBManager:
     def create_relationships_query(self):
         pass
 
+class TransportNetworkGraphDBManager(GraphDBManager):
+    def create_node_query(self):
+        return f'''
+            UNWIND $rows AS row
+            WITH row WHERE row.name IS NOT NULL
+            MERGE (s:{self.node_name} {{name: row.name}})
+                SET s.location = point({{latitude: row.yCoordinate, longitude: row.xCoordinate }}),
+                    s.roteList = row.roteList,
+                    s.isCoordinateApproximate = row.isCoordinateApproximate
+            RETURN COUNT(*) AS total
+        '''
+
+    def create_relationships_query(self):
+        return f'''
+            UNWIND $rows AS path
+            MATCH (u:{self.node_name} {{name: path.startStop}})
+            MATCH (v:{self.node_name} {{name: path.endStop}})
+            MERGE (u)-[r:{self.rels_name} {{name: path.name}}]->(v)
+                SET r.duration = path.duration,
+                    r.route = path.route
+            RETURN COUNT(*) AS total
+        '''
+
+    def get_bd_all_node_query_graph(self):
+        return f'''
+        MATCH (s:Stop)
+        RETURN 
+            ID(s) AS id,
+            s.roteList AS roteList, 
+            s.location.longitude AS x, 
+            s.location.latitude AS y, 
+            s.name AS name, 
+            s.isCoordinateApproximate AS isCoordinateApproximate
+        '''
+
+    def get_bd_all_rels_query_graph(self):
+        return f'''
+        MATCH (u:Stop)-[r:{self.rels_name}]->(v:Stop) 
+        RETURN
+            u.name AS first_stop_name, 
+            v.name AS second_stop_name, 
+            r.duration AS duration
+        '''
+
+    def get_constraint_list(self):
+        return [
+            f"CREATE CONSTRAINT IF NOT EXISTS FOR (s:{self.node_name}) REQUIRE s.name IS UNIQUE",
+            f"CREATE INDEX IF NOT EXISTS FOR ()-[r:{self.rels_name}]-() ON r.name"
+        ]
+
+    @abstractmethod
+    def get_graph(self, city_name):
+        pass
+
+    @abstractmethod
+    def get_node_name(self):
+        pass
+
+    @abstractmethod
+    def get_rels_name(self):
+        pass
+
+    @abstractmethod
+    def get_weight(self):
+        pass
+
 class RoadGraphDBManager(GraphDBManager):
 
     def get_graph(self, city_name):
@@ -163,62 +229,12 @@ class RoadGraphDBManager(GraphDBManager):
     def get_weight(self):
         return "length"
 
-
-class BusGraphDBManager(GraphDBManager):
+class BusGraphDBManager(TransportNetworkGraphDBManager):
 
     def get_graph(self, city_name):
         parser = BusGraphParser(city_name)
         (nodes, relationships) = parser.parse()
         return list(nodes.values()), relationships
-
-    def create_node_query(self):
-        return f'''
-            UNWIND $rows AS row
-            WITH row WHERE row.name IS NOT NULL
-            MERGE (s:{self.node_name} {{name: row.name}})
-                SET s.location = point({{latitude: row.yCoordinate, longitude: row.xCoordinate }}),
-                    s.roteList = row.roteList,
-                    s.isCoordinateApproximate = row.isCoordinateApproximate
-            RETURN COUNT(*) AS total
-        '''
-
-    def create_relationships_query(self):
-        return f'''
-            UNWIND $rows AS path
-            MATCH (u:{self.node_name} {{name: path.startStop}})
-            MATCH (v:{self.node_name} {{name: path.endStop}})
-            MERGE (u)-[r:{self.rels_name} {{name: path.name}}]->(v)
-                SET r.duration = path.duration,
-                    r.route = path.route
-            RETURN COUNT(*) AS total
-        '''
-
-    def get_bd_all_node_query_graph(self):
-        return f'''
-        MATCH (s:Stop)
-        RETURN 
-            ID(s) AS id,
-            s.roteList AS roteList, 
-            s.location.longitude AS x, 
-            s.location.latitude AS y, 
-            s.name AS name, 
-            s.isCoordinateApproximate AS isCoordinateApproximate
-        '''
-
-    def get_bd_all_rels_query_graph(self):
-        return f'''
-        MATCH (u:Stop)-[r:{self.rels_name}]->(v:Stop) 
-        RETURN
-            u.name AS first_stop_name, 
-            v.name AS second_stop_name, 
-            r.duration AS duration
-        '''
-
-    def get_constraint_list(self):
-        return [
-            f"CREATE CONSTRAINT IF NOT EXISTS FOR (s:{self.node_name}) REQUIRE s.name IS UNIQUE",
-            f"CREATE INDEX IF NOT EXISTS FOR ()-[r:{self.rels_name}]-() ON r.name"
-        ]
 
     def get_node_name(self):
         return "BusStop"
@@ -229,60 +245,11 @@ class BusGraphDBManager(GraphDBManager):
     def get_weight(self):
         return "duration"
 
-class TrolleyGraphDBManager(GraphDBManager):
+class TrolleyGraphDBManager(TransportNetworkGraphDBManager):
     def get_graph(self, city_name):
         parser = TrolleyGraphParser(city_name)
         (nodes, relationships) = parser.parse()
         return list(nodes.values()), relationships
-
-    def create_node_query(self):
-        return f'''
-            UNWIND $rows AS row
-            WITH row WHERE row.name IS NOT NULL
-            MERGE (s:{self.node_name} {{name: row.name}})
-                SET s.location = point({{latitude: row.yCoordinate, longitude: row.xCoordinate }}),
-                    s.roteList = row.roteList,
-                    s.isCoordinateApproximate = row.isCoordinateApproximate
-            RETURN COUNT(*) AS total
-        '''
-
-    def create_relationships_query(self):
-        return f'''
-            UNWIND $rows AS path
-            MATCH (u:{self.node_name} {{name: path.startStop}})
-            MATCH (v:{self.node_name} {{name: path.endStop}})
-            MERGE (u)-[r:{self.rels_name} {{name: path.name}}]->(v)
-                SET r.duration = path.duration,
-                    r.route = path.route
-            RETURN COUNT(*) AS total
-        '''
-
-    def get_bd_all_node_query_graph(self):
-        return f'''
-        MATCH (s:Stop)
-        RETURN 
-            ID(s) AS id,
-            s.roteList AS roteList, 
-            s.location.longitude AS x, 
-            s.location.latitude AS y, 
-            s.name AS name, 
-            s.isCoordinateApproximate AS isCoordinateApproximate
-        '''
-
-    def get_bd_all_rels_query_graph(self):
-        return f'''
-        MATCH (u:Stop)-[r:{self.rels_name}]->(v:Stop) 
-        RETURN
-            u.name AS first_stop_name, 
-            v.name AS second_stop_name, 
-            r.duration AS duration
-        '''
-
-    def get_constraint_list(self):
-        return [
-            f"CREATE CONSTRAINT IF NOT EXISTS FOR (s:{self.node_name}) REQUIRE s.name IS UNIQUE",
-            f"CREATE INDEX IF NOT EXISTS FOR ()-[r:{self.rels_name}]-() ON r.name"
-        ]
 
     def get_node_name(self):
         return "TrolleyStop"
@@ -293,60 +260,11 @@ class TrolleyGraphDBManager(GraphDBManager):
     def get_weight(self):
         return "duration"
 
-class TramGraphDBManager(GraphDBManager):
+class TramGraphDBManager(TransportNetworkGraphDBManager):
     def get_graph(self, city_name):
         parser = TramGraphParser(city_name)
         (nodes, relationships) = parser.parse()
         return list(nodes.values()), relationships
-
-    def create_node_query(self):
-        return f'''
-            UNWIND $rows AS row
-            WITH row WHERE row.name IS NOT NULL
-            MERGE (s:{self.node_name} {{name: row.name}})
-                SET s.location = point({{latitude: row.yCoordinate, longitude: row.xCoordinate }}),
-                    s.roteList = row.roteList,
-                    s.isCoordinateApproximate = row.isCoordinateApproximate
-            RETURN COUNT(*) AS total
-        '''
-
-    def create_relationships_query(self):
-        return f'''
-            UNWIND $rows AS path
-            MATCH (u:{self.node_name} {{name: path.startStop}})
-            MATCH (v:{self.node_name} {{name: path.endStop}})
-            MERGE (u)-[r:{self.rels_name} {{name: path.name}}]->(v)
-                SET r.duration = path.duration,
-                    r.route = path.route
-            RETURN COUNT(*) AS total
-        '''
-
-    def get_bd_all_node_query_graph(self):
-        return f'''
-        MATCH (s:Stop)
-        RETURN 
-            ID(s) AS id,
-            s.roteList AS roteList, 
-            s.location.longitude AS x, 
-            s.location.latitude AS y, 
-            s.name AS name, 
-            s.isCoordinateApproximate AS isCoordinateApproximate
-        '''
-
-    def get_bd_all_rels_query_graph(self):
-        return f'''
-        MATCH (u:Stop)-[r:{self.rels_name}]->(v:Stop) 
-        RETURN
-            u.name AS first_stop_name, 
-            v.name AS second_stop_name, 
-            r.duration AS duration
-        '''
-
-    def get_constraint_list(self):
-        return [
-            f"CREATE CONSTRAINT IF NOT EXISTS FOR (s:{self.node_name}) REQUIRE s.name IS UNIQUE",
-            f"CREATE INDEX IF NOT EXISTS FOR ()-[r:{self.rels_name}]-() ON r.name"
-        ]
 
     def get_node_name(self):
         return "TramStop"
@@ -357,60 +275,11 @@ class TramGraphDBManager(GraphDBManager):
     def get_weight(self):
         return "duration"
 
-class MiniBusGraphDBManager(GraphDBManager):
+class MiniBusGraphDBManager(TransportNetworkGraphDBManager):
     def get_graph(self, city_name):
         parser = MiniBusGraphParser(city_name)
         (nodes, relationships) = parser.parse()
         return list(nodes.values()), relationships
-
-    def create_node_query(self):
-        return f'''
-            UNWIND $rows AS row
-            WITH row WHERE row.name IS NOT NULL
-            MERGE (s:{self.node_name} {{name: row.name}})
-                SET s.location = point({{latitude: row.yCoordinate, longitude: row.xCoordinate }}),
-                    s.roteList = row.roteList,
-                    s.isCoordinateApproximate = row.isCoordinateApproximate
-            RETURN COUNT(*) AS total
-        '''
-
-    def create_relationships_query(self):
-        return f'''
-            UNWIND $rows AS path
-            MATCH (u:{self.node_name} {{name: path.startStop}})
-            MATCH (v:{self.node_name} {{name: path.endStop}})
-            MERGE (u)-[r:{self.rels_name} {{name: path.name}}]->(v)
-                SET r.duration = path.duration,
-                    r.route = path.route
-            RETURN COUNT(*) AS total
-        '''
-
-    def get_bd_all_node_query_graph(self):
-        return f'''
-        MATCH (s:Stop)
-        RETURN 
-            ID(s) AS id,
-            s.roteList AS roteList, 
-            s.location.longitude AS x, 
-            s.location.latitude AS y, 
-            s.name AS name, 
-            s.isCoordinateApproximate AS isCoordinateApproximate
-        '''
-
-    def get_bd_all_rels_query_graph(self):
-        return f'''
-        MATCH (u:Stop)-[r:{self.rels_name}]->(v:Stop) 
-        RETURN
-            u.name AS first_stop_name, 
-            v.name AS second_stop_name, 
-            r.duration AS duration
-        '''
-
-    def get_constraint_list(self):
-        return [
-            f"CREATE CONSTRAINT IF NOT EXISTS FOR (s:{self.node_name}) REQUIRE s.name IS UNIQUE",
-            f"CREATE INDEX IF NOT EXISTS FOR ()-[r:{self.rels_name}]-() ON r.name"
-        ]
 
     def get_node_name(self):
         return "MiniBusStop"

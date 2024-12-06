@@ -1,17 +1,20 @@
 from community_detection import Leiden, Louvain
 from MetricsCalculate import Betweenness, PageRank
-from graph_db_manager import RoadGraphDBManager, BusGraphDBManager
+from deep_translator import GoogleTranslator
+import osmnx as ox
+from graph_db_manager import RoadGraphDBManager,\
+                             BusGraphDBManager, \
+                             TrolleyGraphDBManager,\
+                             TramGraphDBManager, \
+                             MiniBusGraphDBManager, \
+                             RoadBuildingsDbManager
 
 if __name__ == "__main__":
-    city_name = "Керчь"
+    ru_city_name = "Петергоф"
     all_types = [
         {
             "name": "Road",
-            "dbManagerConstructor": RoadGraphDBManager,
-        },
-        {
-            "name": "Bus",
-            "dbManagerConstructor": BusGraphDBManager,
+            "dbManagerConstructor": RoadBuildingsDbManager,
         }
     ]
 
@@ -19,37 +22,41 @@ if __name__ == "__main__":
     louvain = Louvain()
     betweenessens = Betweenness()
     page_rank = PageRank()
+    translator = GoogleTranslator(source='ru', target='en')
 
     for type_graph in all_types:
         name = type_graph["name"]
         db_manager_constructor = type_graph["dbManagerConstructor"]
 
         db_manager = db_manager_constructor()
-        db_manager.update_db(city_name)
+        db_manager.update_db(ru_city_name)
 
-        # TODO: road graph not have duration parameter
+        city_name = translator.translate(ru_city_name).replace(" ", "")
         leiden.detect_communities(
-            f"{name}Check8LeidenAlgorithmGraph",
+            f"{name}LeidenAlgorithmGraph",
             db_manager.weight,
-            db_manager.node_name,
-            db_manager.rels_name
+            db_manager.get_main_node_name(),
+            db_manager.get_main_rels_name()
         )
+        print(f"LeidenAlgorithm Community detection for graph {name} completed.")
         louvain.detect_communities(
-            f"{name}Check8LouvainAlgorithmGraph",
+            city_name+f"{name}LouvainAlgorithmGraphTest",
             db_manager.weight,
-            db_manager.node_name,
-            db_manager.rels_name
+            db_manager.get_main_node_name(),
+            db_manager.get_main_rels_name()
         )
+        print(f"LouvainAlgorithm Community detection for graph {name} completed.")
         betweenessens.metric_calculate(
-            f"{name}Check8GraphBetweenessens",
+            city_name+f"{name}GraphBetweenessensTest",
             db_manager.weight,
-            db_manager.node_name,
-            db_manager.rels_name
+            db_manager.get_main_node_name(),
+            db_manager.get_main_rels_name()
         )
+        print(f"betweenessens metric calculated for graph {name}.")
         page_rank.metric_calculate(
-            f"{name}Check8GraphPageRank",
+            city_name+f"{name}GraphPageRankTest",
             db_manager.weight,
-            db_manager.node_name,
-            db_manager.rels_name
+            db_manager.get_main_node_name(),
+            db_manager.get_main_rels_name()
         )
-        print(f"Community detection for graph {name} completed.")
+        print(f"betweenessens metric calculated for graph {name}.")

@@ -1,5 +1,5 @@
 from src.MetricCalculationContext import MetricCalculationContext
-from src.graph_db_manager import GraphDBManager
+from src.GraphDbManager import GraphDBManager
 from src.metrics_distribution import DegreeDistribution, BetweennessDistribution, PageRankDistribution
 
 

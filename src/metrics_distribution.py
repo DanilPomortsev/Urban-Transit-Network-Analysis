@@ -1,7 +1,7 @@
 from abc import abstractmethod
 
-from src.graph_db_manager import GraphDBManager
-from src.neo4j_connection import Neo4jConnection
+from src.GraphDbManager import GraphDBManager
+from src.Neo4jConnection import Neo4jConnection
 
 
 class MetricsDistributionNode:

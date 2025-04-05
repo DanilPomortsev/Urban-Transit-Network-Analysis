@@ -6,8 +6,8 @@ import pandas as pd
 import quads
 from deep_translator import GoogleTranslator
 
-from neo4j_connection import Neo4jConnection
-from parser import BusGraphParser, TrolleyGraphParser, TramGraphParser, MiniBusGraphParser
+from Neo4jConnection import Neo4jConnection
+from Parser import BusGraphParser, TrolleyGraphParser, TramGraphParser, MiniBusGraphParser
 
 
 class GraphDBManager:

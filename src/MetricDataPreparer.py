@@ -1,7 +1,7 @@
 from src import MetricCalculationContext
-from src.community_detection import Leiden, Louvain
-from src.graph_db_manager import GraphDBManager
-from src.metrics_calculate import Betweenness, PageRank
+from src.CommunityDetection import Leiden, Louvain
+from src.GraphDbManager import GraphDBManager
+from src.MetricsCalculate import Betweenness, PageRank
 
 
 class MetricDataPreparer:

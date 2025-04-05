@@ -1,4 +1,4 @@
-from neo4j_connection import Neo4jConnection
+from Neo4jConnection import Neo4jConnection
 
 
 class CommunityDetection:

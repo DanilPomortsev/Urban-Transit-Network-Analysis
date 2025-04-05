@@ -1,7 +1,7 @@
 import random
 
 from deep_translator import GoogleTranslator
-from graph_db_manager import RoadGraphDBManager,\
+from GraphDbManager import RoadGraphDBManager,\
                              BusGraphDBManager, \
                              TrolleyGraphDBManager,\
                              TramGraphDBManager, \

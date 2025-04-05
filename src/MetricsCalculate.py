@@ -1,4 +1,4 @@
-from neo4j_connection import Neo4jConnection
+from Neo4jConnection import Neo4jConnection
 
 class MetricsCalculate:
     def __init__(self, metric_name, write_property):

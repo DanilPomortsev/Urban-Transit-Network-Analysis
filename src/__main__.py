@@ -1,28 +1,35 @@
-from community_detection import Leiden, Louvain
-from MetricsCalculate import Betweenness, PageRank
+import random
+
 from deep_translator import GoogleTranslator
-import osmnx as ox
 from graph_db_manager import RoadGraphDBManager,\
                              BusGraphDBManager, \
                              TrolleyGraphDBManager,\
                              TramGraphDBManager, \
                              MiniBusGraphDBManager, \
                              RoadBuildingsDbManager
+from Printer import Printer, HistogramMetrics
+from src.MetricCalculationContext import MetricCalculationContext
+from src.MetricDataCalculator import MetricDataCalculator
+from src.MetricDataPreparer import MetricDataPreparer
 
 if __name__ == "__main__":
-    ru_city_name = "Петергоф"
+    ru_city_name = "Пермь"
     all_types = [
         {
             "name": "Road",
-            "dbManagerConstructor": RoadBuildingsDbManager,
+            "dbManagerConstructor": RoadGraphDBManager,
         }
     ]
-
-    leiden = Leiden()
-    louvain = Louvain()
-    betweenessens = Betweenness()
-    page_rank = PageRank()
     translator = GoogleTranslator(source='ru', target='en')
+    metric_context = MetricCalculationContext(
+        need_leiden_community_id=False,
+        need_louvain_community_id=False,
+        need_leiden_modulariry=False,
+        need_louvain_modulariry=False,
+        need_betweenessens=True,
+        need_page_rank=False,
+        need_degree=False
+    )
 
     for type_graph in all_types:
         name = type_graph["name"]
@@ -32,31 +39,10 @@ if __name__ == "__main__":
         db_manager.update_db(ru_city_name)
 
         city_name = translator.translate(ru_city_name).replace(" ", "")
-        leiden.detect_communities(
-            f"{name}LeidenAlgorithmGraph",
-            db_manager.weight,
-            db_manager.get_main_node_name(),
-            db_manager.get_main_rels_name()
-        )
-        print(f"LeidenAlgorithm Community detection for graph {name} completed.")
-        louvain.detect_communities(
-            city_name+f"{name}LouvainAlgorithmGraphTest",
-            db_manager.weight,
-            db_manager.get_main_node_name(),
-            db_manager.get_main_rels_name()
-        )
-        print(f"LouvainAlgorithm Community detection for graph {name} completed.")
-        betweenessens.metric_calculate(
-            city_name+f"{name}GraphBetweenessensTest",
-            db_manager.weight,
-            db_manager.get_main_node_name(),
-            db_manager.get_main_rels_name()
-        )
-        print(f"betweenessens metric calculated for graph {name}.")
-        page_rank.metric_calculate(
-            city_name+f"{name}GraphPageRankTest",
-            db_manager.weight,
-            db_manager.get_main_node_name(),
-            db_manager.get_main_rels_name()
-        )
-        print(f"betweenessens metric calculated for graph {name}.")
+        metric_data_preparer = MetricDataPreparer(metric_context, "somesome" + str(random.random()), db_manager)
+        prepare_result = metric_data_preparer.prepare_metrics()
+        metric_data_calculator = MetricDataCalculator(metric_context, db_manager)
+        data = metric_data_calculator.calculate_data(prepare_result)
+
+        printer = Printer(data, metric_context)
+        printer.plot_heatmap_on_map(HistogramMetrics.BEETWEENESSENS)

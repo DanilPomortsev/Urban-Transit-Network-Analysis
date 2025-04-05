@@ -1,6 +1,10 @@
 from src.enums.HeatMapMetrics import HeatMapMetrics
 from src.enums.HistogramMetrics import HistogramMetrics
 
+"""
+    Контекст для отрисовки графиков о метриках сетей
+"""
+
 
 class PrintGraphAnalisContext:
     def __init__(

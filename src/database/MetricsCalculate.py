@@ -1,5 +1,9 @@
 from src.database.Neo4jConnection import Neo4jConnection
 
+"""
+    Класс содержащий query для вычисления метрик сети 
+"""
+
 
 class MetricsCalculate:
     def __init__(self, metric_name, write_property):

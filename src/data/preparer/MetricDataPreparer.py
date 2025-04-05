@@ -2,6 +2,9 @@ from src.context.MetricCalculationContext import MetricCalculationContext
 from src.database.CommunityDetection import Leiden, Louvain
 from src.database.GraphDbManager import GraphDBManager
 from src.database.MetricsCalculate import Betweenness, PageRank
+"""
+    Класс записывающий метрики сетей в бд
+"""
 
 
 class MetricDataPreparer:

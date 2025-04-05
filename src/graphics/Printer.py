@@ -7,6 +7,9 @@ import plotly.graph_objects as go
 
 from src.context.PrintGraphAnalisContext import PrintGraphAnalisContext
 from src.context.MetricCalculationContext import MetricCalculationContext
+"""
+    Класс отрисовывающий графики по вычисленным метрикам 
+"""
 
 
 class Printer:

@@ -2,6 +2,10 @@ from abc import abstractmethod
 
 from src.database.GraphDbManager import GraphDBManager
 from src.database.Neo4jConnection import Neo4jConnection
+"""
+    Класс содержащий query для вычисления распределения метрик сети 
+"""
+
 
 
 class MetricsDistributionNode:

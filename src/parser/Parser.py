@@ -8,6 +8,9 @@ from abc import abstractmethod
 
 import requests
 from bs4 import BeautifulSoup
+"""
+    Класс занимающийся парсингом данных с сайта https://kudikina.ru
+"""
 
 cache_file = '../cache/city_urls.json'
 cache_expire_days = 30

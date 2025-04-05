@@ -1,4 +1,7 @@
 from enum import Enum
+"""
+    Список метрик с названиями для отрисовки в Heat Map
+"""
 
 
 class HeatMapMetrics(Enum):

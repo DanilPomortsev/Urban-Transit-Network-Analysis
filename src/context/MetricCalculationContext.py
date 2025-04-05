@@ -1,3 +1,8 @@
+"""
+    Контекст для вычисления метрик сетей
+"""
+
+
 class MetricCalculationContext:
     def __init__(
             self,

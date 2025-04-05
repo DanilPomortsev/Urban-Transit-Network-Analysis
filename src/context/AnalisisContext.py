@@ -1,6 +1,10 @@
 from src.context.MetricCalculationContext import MetricCalculationContext
 from src.context.GraphAnalisContext import GraphAnalisContext
 
+"""
+    Контекст для анализа сетей
+"""
+
 
 class AnalisContext:
     def __init__(

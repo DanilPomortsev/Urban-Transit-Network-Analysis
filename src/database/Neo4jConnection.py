@@ -1,5 +1,9 @@
 from neo4j import GraphDatabase
 
+"""
+    Класс содержащий логику работы с бд neo4j
+"""
+
 
 class Neo4jConnection:
 
@@ -36,7 +40,7 @@ class Neo4jConnection:
             if session is not None:
                 session.close()
 
-    def execute_query(self, query, needLog = False):
+    def execute_query(self, query, needLog=False):
         assert self.__driver is not None, "Driver not initialized!"
         session = None
 
@@ -76,6 +80,7 @@ class Neo4jConnection:
         finally:
             if session is not None:
                 session.close()
+
 
 def get_node(tx, query, bounds=None):
     results = tx.run(query, parameters=bounds).to_df()

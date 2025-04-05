@@ -1,5 +1,8 @@
 from enum import Enum
 import src.database.GraphDbManager as GraphDbManager
+"""
+    Список типов сетей с соответсвующими конструкторами для классов работающими с бд
+"""
 
 
 class GraphTypes(Enum):

@@ -1,5 +1,9 @@
 from enum import Enum
 
+"""
+    Список метрик с названиями для отрисовки в Histogram
+"""
+
 
 class HistogramMetrics(Enum):
     PAGE_RANK = 'page_rank'

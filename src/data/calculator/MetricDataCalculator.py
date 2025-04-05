@@ -1,6 +1,9 @@
 from src.context.MetricCalculationContext import MetricCalculationContext
 from src.database.GraphDbManager import GraphDBManager
 from src.database.MetricsDistribution import DegreeDistribution, BetweennessDistribution, PageRankDistribution
+"""
+    Класс вычисляющий метрики сетей(берёт уже записанные метрики из бд или вычисляет не сложные)
+"""
 
 
 class MetricDataCalculator:

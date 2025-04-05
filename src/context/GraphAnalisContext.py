@@ -2,6 +2,10 @@ from src.context.MetricCalculationContext import MetricCalculationContext
 from src.context.PrintGraphAnalisContext import PrintGraphAnalisContext
 from src.enums.GraphTypes import GraphTypes
 
+"""
+    Контекст для анализа сети конкретной сети
+"""
+
 
 class GraphAnalisContext:
     def __init__(

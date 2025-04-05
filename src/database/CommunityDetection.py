@@ -1,4 +1,7 @@
 from src.database.Neo4jConnection import Neo4jConnection
+"""
+    Класс содержащий query для вычисления кластеризации сети 
+"""
 
 
 class CommunityDetection:

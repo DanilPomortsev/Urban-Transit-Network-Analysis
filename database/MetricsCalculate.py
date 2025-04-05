@@ -1,4 +1,4 @@
-from src.database.Neo4jConnection import Neo4jConnection
+from database.Neo4jConnection import Neo4jConnection
 
 """
     Класс содержащий query для вычисления метрик сети 

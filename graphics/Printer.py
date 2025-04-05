@@ -5,8 +5,8 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
-from src.context.PrintGraphAnalisContext import PrintGraphAnalisContext
-from src.context.MetricCalculationContext import MetricCalculationContext
+from context.PrintGraphAnalisContext import PrintGraphAnalisContext
+from context.MetricCalculationContext import MetricCalculationContext
 """
     Класс отрисовывающий графики по вычисленным метрикам 
 """

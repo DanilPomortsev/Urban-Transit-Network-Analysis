@@ -6,8 +6,8 @@ import pandas as pd
 import quads
 from deep_translator import GoogleTranslator
 
-from src.database.Neo4jConnection import Neo4jConnection
-from src.parser.Parser import BusGraphParser, TrolleyGraphParser, TramGraphParser, MiniBusGraphParser
+from database.Neo4jConnection import Neo4jConnection
+from parser.Parser import BusGraphParser, TrolleyGraphParser, TramGraphParser, MiniBusGraphParser
 """
     Классы с наследственной структурой которые занимаются работой с бд для каждого типа сети 
 """

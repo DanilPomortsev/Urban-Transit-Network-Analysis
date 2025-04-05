@@ -1,5 +1,5 @@
-from src.context.MetricCalculationContext import MetricCalculationContext
-from src.context.GraphAnalisContext import GraphAnalisContext
+from context.MetricCalculationContext import MetricCalculationContext
+from context.GraphAnalisContext import GraphAnalisContext
 
 """
     Контекст для анализа сетей

@@ -1,5 +1,5 @@
-from src.enums.HeatMapMetrics import HeatMapMetrics
-from src.enums.HistogramMetrics import HistogramMetrics
+from enums.HeatMapMetrics import HeatMapMetrics
+from enums.HistogramMetrics import HistogramMetrics
 
 """
     Контекст для отрисовки графиков о метриках сетей

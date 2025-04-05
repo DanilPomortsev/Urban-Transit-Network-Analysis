@@ -1,9 +1,9 @@
 import random
 
-from src.context.AnalisisContext import AnalisContext
-from src.data.calculator.MetricDataCalculator import MetricDataCalculator
-from src.data.preparer.MetricDataPreparer import MetricDataPreparer
-from src.graphics.Printer import Printer
+from context.AnalisisContext import AnalisContext
+from data.calculator.MetricDataCalculator import MetricDataCalculator
+from data.preparer.MetricDataPreparer import MetricDataPreparer
+from graphics.Printer import Printer
 """
     Класс ответственный за анализ сетей
 """

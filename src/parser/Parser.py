@@ -9,7 +9,7 @@ from abc import abstractmethod
 import requests
 from bs4 import BeautifulSoup
 
-cache_file = './cache/city_urls.json'
+cache_file = '../cache/city_urls.json'
 cache_expire_days = 30
 site_url = "https://kudikina.ru"
 map_url = "/map"

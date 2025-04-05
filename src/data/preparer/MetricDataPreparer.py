@@ -1,7 +1,7 @@
-from src import MetricCalculationContext
-from src.CommunityDetection import Leiden, Louvain
-from src.GraphDbManager import GraphDBManager
-from src.MetricsCalculate import Betweenness, PageRank
+from src.context.MetricCalculationContext import MetricCalculationContext
+from src.database.CommunityDetection import Leiden, Louvain
+from src.database.GraphDbManager import GraphDBManager
+from src.database.MetricsCalculate import Betweenness, PageRank
 
 
 class MetricDataPreparer:
@@ -29,9 +29,9 @@ class MetricDataPreparer:
     def prepare_metrics(self):
         result = {}
         if self.leiden_calculator is not None:
-            result["leiden_modularity"] = self.prepare_leiden()
+            result["leiden_modularity_value"] = self.prepare_leiden()
         if self.louvain_calculator is not None:
-            result["louvain_modularity"] = self.prepare_louvain()
+            result["louvain_modularity_value"] = self.prepare_louvain()
         if self.betweenessens_calculator is not None:
             self.prepare_betweenessens()
         if self.page_rank_calculator is not None:

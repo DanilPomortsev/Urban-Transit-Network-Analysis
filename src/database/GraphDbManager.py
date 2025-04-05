@@ -6,8 +6,8 @@ import pandas as pd
 import quads
 from deep_translator import GoogleTranslator
 
-from Neo4jConnection import Neo4jConnection
-from Parser import BusGraphParser, TrolleyGraphParser, TramGraphParser, MiniBusGraphParser
+from src.database.Neo4jConnection import Neo4jConnection
+from src.parser.Parser import BusGraphParser, TrolleyGraphParser, TramGraphParser, MiniBusGraphParser
 
 
 class GraphDBManager:
@@ -25,6 +25,7 @@ class GraphDBManager:
         translator = GoogleTranslator(source='ru', target='en')
         self.ru_city_name = city_name
         self.city_name = translator.translate(city_name).replace(" ", "")
+
     @abstractmethod
     def get_graph(self, city_name):
         pass
@@ -44,6 +45,7 @@ class GraphDBManager:
     @abstractmethod
     def node_identity(self):
         pass
+
 
 class TwoTypeNodeDBManager(GraphDBManager):
     def __init__(self):
@@ -88,7 +90,6 @@ class TwoTypeNodeDBManager(GraphDBManager):
     def get_second_rels_name(self):
         pass
 
-
     def create_constraints(self, tx):
         constraints = self.get_constraint_list()
         for constraint in constraints:
@@ -114,6 +115,7 @@ class TwoTypeNodeDBManager(GraphDBManager):
     def create_second_relationships_query(self):
         pass
 
+
 class RoadBuildingsDbManager(TwoTypeNodeDBManager):
     def get_road_graph(self, city_name):
         g = ox.graph_from_place(city_name, simplify=True, retain_all=True, network_type="drive")
@@ -129,7 +131,8 @@ class RoadBuildingsDbManager(TwoTypeNodeDBManager):
     def get_graph(self, city_name):
         (road_nodes, road_relationships) = self.get_road_graph(city_name)
         tree = quads.QuadTree((0, 0), 200, 200)
-        road_geo_to_node = {quads.Point(float(road_node.x), float(road_node.y)): road_node for road_node in road_nodes.itertuples()}
+        road_geo_to_node = {quads.Point(float(road_node.x), float(road_node.y)): road_node for road_node in
+                            road_nodes.itertuples()}
         for road_node in road_nodes.itertuples():
             tree.insert((float(road_node.x), float(road_node.y)))
         buildings = pd.DataFrame(ox.geometries_from_place(city_name, tags={'building': True}))
@@ -152,7 +155,7 @@ class RoadBuildingsDbManager(TwoTypeNodeDBManager):
                 "intersect_osmid": nearest_node.osmid,
                 "uniq_building_name": uniq_name,
                 "uniq_building_road_name": uniq_name + "to" + str(nearest_node.x) + str(nearest_node.y),
-                "length": math.sqrt((nearest_node.x - x)**2 + (nearest_node.y - y)**2)
+                "length": math.sqrt((nearest_node.x - x) ** 2 + (nearest_node.y - y) ** 2)
             }
             buildings_rels.append(nearest_node_filtred)
             filtred_building = {
@@ -188,7 +191,8 @@ class RoadBuildingsDbManager(TwoTypeNodeDBManager):
         return [
             r"CREATE CONSTRAINT IF NOT EXISTS FOR (i:{}) REQUIRE i.osmid IS UNIQUE".format(self.first_node_name),
             r"CREATE INDEX IF NOT EXISTS FOR ()-[r:{}]-() ON r.osmid".format(self.first_rels_name),
-            r"CREATE CONSTRAINT IF NOT EXISTS FOR (i:{}) REQUIRE i.uniq_building_name IS UNIQUE".format(self.second_node_name),
+            r"CREATE CONSTRAINT IF NOT EXISTS FOR (i:{}) REQUIRE i.uniq_building_name IS UNIQUE".format(
+                self.second_node_name),
             r"CREATE INDEX IF NOT EXISTS FOR ()-[r:{}]-() ON r.uniq_building_road_name".format(self.second_rels_name),
         ]
 
@@ -262,6 +266,7 @@ class RoadBuildingsDbManager(TwoTypeNodeDBManager):
     def get_weight(self):
         return "length"
 
+
 class OneTypeNodeDBManager(GraphDBManager):
     def __init__(self):
         super().__init__()
@@ -302,7 +307,6 @@ class OneTypeNodeDBManager(GraphDBManager):
         rels_get_query = self.get_bd_all_rels_query_graph()
         return self.connection.read_all(rels_get_query)
 
-
     def create_constraints(self, tx):
         constraints = self.get_constraint_list()
         for constraint in constraints:
@@ -325,6 +329,7 @@ class OneTypeNodeDBManager(GraphDBManager):
     @abstractmethod
     def create_relationships_query(self):
         pass
+
 
 class TransportNetworkGraphDBManager(OneTypeNodeDBManager):
     def create_node_query(self):
@@ -391,6 +396,7 @@ class TransportNetworkGraphDBManager(OneTypeNodeDBManager):
     @abstractmethod
     def get_weight(self):
         pass
+
 
 class RoadGraphDBManager(OneTypeNodeDBManager):
 
@@ -484,6 +490,7 @@ class RoadGraphDBManager(OneTypeNodeDBManager):
     def node_identity(self):
         return "geometry_wkt"
 
+
 class BusGraphDBManager(TransportNetworkGraphDBManager):
 
     def get_graph(self, city_name):
@@ -495,10 +502,11 @@ class BusGraphDBManager(TransportNetworkGraphDBManager):
         return self.city_name + "BusStop"
 
     def get_rels_name(self):
-        return self.city_name+"BusRouteSegment"
+        return self.city_name + "BusRouteSegment"
 
     def get_weight(self):
         return "duration"
+
 
 class TrolleyGraphDBManager(TransportNetworkGraphDBManager):
     def get_graph(self, city_name):
@@ -515,6 +523,7 @@ class TrolleyGraphDBManager(TransportNetworkGraphDBManager):
     def get_weight(self):
         return "duration"
 
+
 class TramGraphDBManager(TransportNetworkGraphDBManager):
     def get_graph(self, city_name):
         parser = TramGraphParser(city_name)
@@ -530,6 +539,7 @@ class TramGraphDBManager(TransportNetworkGraphDBManager):
     def get_weight(self):
         return "duration"
 
+
 class MiniBusGraphDBManager(TransportNetworkGraphDBManager):
     def get_graph(self, city_name):
         parser = MiniBusGraphParser(city_name)
@@ -544,6 +554,7 @@ class MiniBusGraphDBManager(TransportNetworkGraphDBManager):
 
     def get_weight(self):
         return "duration"
+
 
 def insert_data(tx, query, rows, batch_size=10000):
     total = 0

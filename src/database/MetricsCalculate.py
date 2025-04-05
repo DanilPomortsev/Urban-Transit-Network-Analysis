@@ -1,4 +1,5 @@
-from Neo4jConnection import Neo4jConnection
+from src.database.Neo4jConnection import Neo4jConnection
+
 
 class MetricsCalculate:
     def __init__(self, metric_name, write_property):
@@ -36,6 +37,7 @@ class MetricsCalculate:
             )
         '''
         return self.connection.run(query)
+
 
 class Betweenness(MetricsCalculate):
     def __init__(self):

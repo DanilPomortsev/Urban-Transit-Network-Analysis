@@ -1,6 +1,6 @@
-from src.MetricCalculationContext import MetricCalculationContext
-from src.GraphDbManager import GraphDBManager
-from src.metrics_distribution import DegreeDistribution, BetweennessDistribution, PageRankDistribution
+from src.context.MetricCalculationContext import MetricCalculationContext
+from src.database.GraphDbManager import GraphDBManager
+from src.database.MetricsDistribution import DegreeDistribution, BetweennessDistribution, PageRankDistribution
 
 
 class MetricDataCalculator:

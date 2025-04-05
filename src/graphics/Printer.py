@@ -5,7 +5,8 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
-from src.MetricCalculationContext import MetricCalculationContext
+from src.context.PrintGraphAnalisContext import PrintGraphAnalisContext
+from src.context.MetricCalculationContext import MetricCalculationContext
 
 
 class Printer:
@@ -17,33 +18,48 @@ class Printer:
         self.data = data
         self.metric_calculation_context = metric_calculation_context
 
+    def print_graphics(self, print_graph_analis_context: PrintGraphAnalisContext):
+        for hist_metric in print_graph_analis_context.histogram_map_metrics_list:
+            self.plot_histogram(hist_metric)
+        for heat_map_metric in print_graph_analis_context.heat_map_metrics_list:
+            self.plot_heatmap_on_map(heat_map_metric, print_graph_analis_context.mesh_size)
+
+
     def plot_histogram(
             self,
             metric: Enum,
-            title="Distribution of metric_value",
-            xlabel="metric_value",
+            title="Distribution of metric_value ",
             ylabel="Frequency"
     ):
-        metric_name = metric.value
-        metric_values = [item[metric_name + "_value"] for item in self.data]
+        metric_name = str(metric.value)
+        title += metric_name
+        metric_values = self.data[metric_name + "_value"]
 
-        df = pd.DataFrame({"metric_value": metric_values})
+        df = pd.DataFrame({"metric_value: " + metric_name: metric_values})
 
-        fig = px.histogram(df, x="metric_value", title=title, labels={"metric_value": xlabel, "count": ylabel},
-                           marginal="rug")  # marginal="rug" добавляет rug plot
+        fig = px.histogram(
+            df,
+            x="metric_value: " + metric_name,
+            title=title,
+            labels={
+                "metric_value ": metric_name,
+                "count": ylabel
+            },
+            marginal="rug"
+        )
 
         fig.show()
 
     def plot_heatmap_on_map(
             self,
             metric: Enum,
-            resolution=10,
+            resolution,
             colorscale='Viridis'
     ):
         latitudes = []
         longitudes = []
         metric_values = []
-        metric_name = metric.value
+        metric_name = str(metric.value)
 
         for item in range(len(self.data[metric_name + "_identity"])):
             try:
@@ -96,22 +112,9 @@ class Printer:
             x=lon_centers,
             y=lat_centers,
             colorscale=colorscale,
-            colorbar=dict(title='Среднее значение метрики'),
+            colorbar=dict(title='Среднее значение метрики ' + metric_name),
             hoverinfo='x+y+z',
-            name='Средние значения',
+            name='Средние значения ' + metric_name,
         ))
 
         fig.show()
-
-
-class HeatMapMetrics(Enum):
-    PAGE_RANK = 'page_rank'
-    BEETWEENESSENS = 'beetweenessens'
-
-
-class HistogramMetrics(Enum):
-    PAGE_RANK = 'page_rank'
-    BEETWEENESSENS = 'beetweenessens'
-    DEGREE = 'degree'
-    LEIDEN_MODULARITY = 'leiden_modularity'
-    LOUVAIN_MODULARITY = 'louvain_modularity'

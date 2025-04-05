@@ -10,7 +10,7 @@ class CommunityDetection:
     def detect_communities(self, graph_name, relationship_weight_property, node_name, relationship_name):
         self.__make_graph(graph_name, node_name, relationship_name, relationship_weight_property)
         self.__detect_communities(graph_name, relationship_weight_property)
-        self.__write_communities(graph_name)
+        return self.__write_communities(graph_name)
 
     def __make_graph(self, graph_name, node_name, relationship_name, relationship_weight_property):
         query = f'''
@@ -51,7 +51,7 @@ class CommunityDetection:
             ) 
             YIELD communityCount, modularity, modularities
         '''
-        return self.connection.run(query)
+        return self.connection.execute_query(query).records[0][2]
 
 
 class Leiden(CommunityDetection):

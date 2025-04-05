@@ -17,6 +17,9 @@ class GraphDBManager:
         self.weight = self.get_weight()
         self.ru_city_name = None
         self.city_name = None
+        self.node_identity = self.node_identity()
+        self.node_name = None
+        self.rels_name = None
 
     def city_name_init(self, city_name):
         translator = GoogleTranslator(source='ru', target='en')
@@ -38,6 +41,10 @@ class GraphDBManager:
     def get_main_rels_name(self):
         pass
 
+    @abstractmethod
+    def node_identity(self):
+        pass
+
 class TwoTypeNodeDBManager(GraphDBManager):
     def __init__(self):
         super().__init__()
@@ -51,6 +58,8 @@ class TwoTypeNodeDBManager(GraphDBManager):
         self.city_name_init(city_name)
         self.first_node_name = self.get_first_node_name()
         self.first_rels_name = self.get_first_rels_name()
+        self.node_name = self.get_first_node_name()
+        self.rels_name = self.get_first_rels_name()
         self.second_node_name = self.get_second_node_name()
         self.second_rels_name = self.get_second_rels_name()
         (first_nodes, first_relationships, second_nodes, second_relationships) = self.get_graph(self.ru_city_name)
@@ -256,8 +265,6 @@ class RoadBuildingsDbManager(TwoTypeNodeDBManager):
 class OneTypeNodeDBManager(GraphDBManager):
     def __init__(self):
         super().__init__()
-        self.node_name = None
-        self.rels_name = None
 
     def update_db(self, city_name):
         self.city_name_init(city_name)
@@ -305,7 +312,7 @@ class OneTypeNodeDBManager(GraphDBManager):
         return self.node_name
 
     def get_main_rels_name(self):
-        return self.node_name
+        return self.rels_name
 
     @abstractmethod
     def get_constraint_list(self):
@@ -473,6 +480,9 @@ class RoadGraphDBManager(OneTypeNodeDBManager):
 
     def get_weight(self):
         return "length"
+
+    def node_identity(self):
+        return "geometry_wkt"
 
 class BusGraphDBManager(TransportNetworkGraphDBManager):
 

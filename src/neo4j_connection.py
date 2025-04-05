@@ -36,6 +36,20 @@ class Neo4jConnection:
             if session is not None:
                 session.close()
 
+    def execute_query(self, query, needLog = False):
+        assert self.__driver is not None, "Driver not initialized!"
+        session = None
+
+        try:
+            result = self.__driver.execute_query(query)
+            if needLog: print(list(result))
+            return result
+        except Exception as e:
+            print("Query failed:", e)
+        finally:
+            if session is not None:
+                session.close()
+
     def read_all(self, query):
         assert self.__driver is not None, "Driver not initialized!"
         session = None

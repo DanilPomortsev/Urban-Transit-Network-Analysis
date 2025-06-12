@@ -10,25 +10,13 @@ class CommunityDetection:
         self.property_name = property_name
         self.connection = Neo4jConnection()
 
-    def detect_communities(self, graph_name, relationship_weight_property, node_name, relationship_name):
-        self.__make_graph(graph_name, node_name, relationship_name, relationship_weight_property)
+    def detect_communities(
+            self,
+            graph_name,
+            relationship_weight_property
+    ):
         self.__detect_communities(graph_name, relationship_weight_property)
         return self.__write_communities(graph_name)
-
-    def __make_graph(self, graph_name, node_name, relationship_name, relationship_weight_property):
-        query = f'''
-            CALL gds.graph.project(
-            '{graph_name}',
-            '{node_name}',
-            {{
-                {relationship_name}: {{
-                    orientation: 'UNDIRECTED',
-                    properties: '{relationship_weight_property}'
-                }}
-            }}
-        )
-        '''
-        self.connection.run(query)
 
     def __detect_communities(self, graph_name, relationship_weight_property):
         query = f'''

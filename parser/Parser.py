@@ -79,11 +79,13 @@ class AbstractTransportGraphParser:
             transport_stop = self.__update_or_add_stop(transport_stop_name, coordinate, route_name)
 
             if previous_transport_stop_name is not None:
+                duration = self.calculate_duration(previous_time_point, time_point)
+                if duration is False:
+                    continue
                 self.__add_route(
                     previous_transport_stop_name,
                     transport_stop,
-                    previous_time_point,
-                    time_point,
+                    duration,
                     route_name
                 )
 
@@ -128,14 +130,14 @@ class AbstractTransportGraphParser:
 
         return transport_stop_name, is_new_stop
 
-    def __add_route(self, start_stop, end_stop, start_time, end_time, route_name):
+    def __add_route(self, start_stop, end_stop, duration, route_name):
         if start_stop is not None and end_stop is not None:
             self.relationships.append({"startStop": start_stop["name"],
                                        "endStop": end_stop["name"],
                                        "name": start_stop["name"] + " -> " + end_stop[
                                            "name"] + "; route_name: " + route_name,
                                        "route": route_name,
-                                       "duration": self.calculate_duration(start_time, end_time)
+                                       "duration": duration
                                        })
 
     def get_all_routes_info(self):
@@ -230,8 +232,12 @@ class AbstractTransportGraphParser:
         return {}
 
     def save_cache(self, cache_file, cache_data):
+        cache_dir = os.path.dirname(cache_file)
+        if cache_dir and not os.path.exists(cache_dir):
+            os.makedirs(cache_dir)
+
         with open(cache_file, 'w') as file:
-            json.dump(cache_data, file)
+                json.dump(cache_data, file)
 
     def parse_all_city_urls(self):
         url = "https://kudikina.ru/"
@@ -263,10 +269,14 @@ class AbstractTransportGraphParser:
         return cities
 
     def calculate_duration(self, start_stop, end_stop):
-        start_hour, start_minute = map(int, start_stop.split(':'))
-        end_hour, end_minute = map(int, end_stop.split(':'))
-        return abs((end_hour * 60 + end_minute) - (start_hour * 60 + start_minute))
-
+        try:
+            start_hour, start_minute = map(int, start_stop.split(':'))
+            end_hour, end_minute = map(int, end_stop.split(':'))
+            return abs((end_hour * 60 + end_minute) - (start_hour * 60 + start_minute))
+        except ValueError:
+            return False
+        except AttributeError:
+            return False
     def are_stops_same(self, coord1, coord2, tolerance=0.005):
         distance = math.dist(coord1.get_xy(), coord2.get_xy())
         return abs(distance) < tolerance

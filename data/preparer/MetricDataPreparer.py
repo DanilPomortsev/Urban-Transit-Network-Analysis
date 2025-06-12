@@ -1,3 +1,6 @@
+import random
+
+from context import GraphAnalisContext
 from context.MetricCalculationContext import MetricCalculationContext
 from database.CommunityDetection import Leiden, Louvain
 from database.GraphDbManager import GraphDBManager
@@ -8,16 +11,12 @@ from database.MetricsCalculate import Betweenness, PageRank
 
 
 class MetricDataPreparer:
-    def __init__(
-            self,
-            metric_calculation_context: MetricCalculationContext,
-            graph_name,
-            db_manager: GraphDBManager
-    ):
+    def __init__(self, graph_analisis_context: GraphAnalisContext):
         self.leiden_calculator = None
         self.louvain_calculator = None
         self.betweenessens_calculator = None
         self.page_rank_calculator = None
+        metric_calculation_context = graph_analisis_context.metric_calculation_context
         if metric_calculation_context.need_leiden_community_id or metric_calculation_context.need_leiden_modulariry:
             self.leiden_calculator = Leiden()
         if metric_calculation_context.need_louvain_community_id or metric_calculation_context.need_louvain_modulariry:
@@ -26,8 +25,7 @@ class MetricDataPreparer:
             self.betweenessens_calculator = Betweenness()
         if metric_calculation_context.need_page_rank:
             self.page_rank_calculator = PageRank()
-        self.graph_name = graph_name
-        self.db_manager = db_manager
+        self.graph_analisis_context = graph_analisis_context
 
     def prepare_metrics(self):
         result = {}
@@ -43,39 +41,33 @@ class MetricDataPreparer:
 
     def prepare_leiden(self):
         result = self.leiden_calculator.detect_communities(
-            self.graph_name,
-            self.db_manager.weight,
-            self.db_manager.get_main_node_name(),
-            self.db_manager.get_main_rels_name()
+            self.graph_analisis_context.graph_name,
+            self.graph_analisis_context.neo4j_DB_graph_parameters.weight
         )
-        print(f"LeidenAlgorithm Community detection for graph {self.graph_name} completed.")
+        print(result)
+        print(f"LeidenAlgorithm Community detection for graph {self.graph_analisis_context.graph_name} completed.")
         return result
 
     def prepare_louvain(self):
         result = self.louvain_calculator.detect_communities(
-            self.graph_name,
-            self.db_manager.weight,
-            self.db_manager.get_main_node_name(),
-            self.db_manager.get_main_rels_name()
+            self.graph_analisis_context.graph_name,
+            self.graph_analisis_context.neo4j_DB_graph_parameters.weight
         )
-        print(f"LovainAlgorithm Community detection for graph {self.graph_name} completed.")
+        print(result)
+        print(f"LovainAlgorithm Community detection for graph {self.graph_analisis_context.graph_name} completed.")
         return result
 
     def prepare_betweenessens(self):
         self.betweenessens_calculator.metric_calculate(
-            self.graph_name,
-            self.db_manager.weight,
-            self.db_manager.get_main_node_name(),
-            self.db_manager.get_main_rels_name()
+            self.graph_analisis_context.graph_name,
+            self.graph_analisis_context.neo4j_DB_graph_parameters.weight
         )
-        print(f"betweenessens metric calculated for graph {self.graph_name}.")
+        print(f"betweenessens metric calculated for graph {self.graph_analisis_context.graph_name}.")
 
     def prepare_page_rank(self):
         self.page_rank_calculator.metric_calculate(
-            self.graph_name,
-            self.db_manager.weight,
-            self.db_manager.get_main_node_name(),
-            self.db_manager.get_main_rels_name()
+            self.graph_analisis_context.graph_name,
+            self.graph_analisis_context.neo4j_DB_graph_parameters.weight
         )
-        print(f"pageRank metric calculated for graph {self.graph_name}.")
+        print(f"pageRank metric calculated for graph {self.graph_analisis_context.graph_name}.")
 

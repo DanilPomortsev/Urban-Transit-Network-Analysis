@@ -4,8 +4,8 @@ from abc import abstractmethod
 import osmnx as ox
 import pandas as pd
 import quads
-from deep_translator import GoogleTranslator
 
+from context import GraphAnalisContext
 from database.Neo4jConnection import Neo4jConnection
 from parser.Parser import BusGraphParser, TrolleyGraphParser, TramGraphParser, MiniBusGraphParser
 """
@@ -14,23 +14,21 @@ from parser.Parser import BusGraphParser, TrolleyGraphParser, TramGraphParser, M
 
 
 class GraphDBManager:
-    def __init__(self):
+    def __init__(self, graph_analis_context: GraphAnalisContext):
         self.connection = Neo4jConnection()
-        self.constraints = []
-        self.weight = self.get_weight()
-        self.ru_city_name = None
-        self.city_name = None
-        self.node_identity = self.node_identity()
-        self.node_name = None
-        self.rels_name = None
+        self.city_name = graph_analis_context.city_name
+        self.enrichDBParameters(graph_analis_context)
+        self.db_graph_parameters = graph_analis_context.neo4j_DB_graph_parameters
 
-    def city_name_init(self, city_name):
-        translator = GoogleTranslator(source='ru', target='en')
-        self.ru_city_name = city_name
-        self.city_name = translator.translate(city_name).replace(" ", "")
+    def enrichDBParameters(self, graph_analis_context: GraphAnalisContext):
+        graph_analis_context.neo4j_DB_graph_parameters.city_name = self.city_name
+        graph_analis_context.neo4j_DB_graph_parameters.node_geometry_identity = self.node_geometry_identity()
+        graph_analis_context.neo4j_DB_graph_parameters.main_rels_name = self.get_main_rels_name()
+        graph_analis_context.neo4j_DB_graph_parameters.main_node_name = self.get_main_node_name()
+        graph_analis_context.neo4j_DB_graph_parameters.weight = self.get_weight()
 
     @abstractmethod
-    def get_graph(self, city_name):
+    def get_graph(self):
         pass
 
     @abstractmethod
@@ -46,30 +44,22 @@ class GraphDBManager:
         pass
 
     @abstractmethod
-    def node_identity(self):
+    def node_geometry_identity(self):
         pass
 
 
 class TwoTypeNodeDBManager(GraphDBManager):
-    def __init__(self):
-        super().__init__()
-        self.first_node_name = None
-        self.first_rels_name = None
-        self.second_node_name = None
-        self.second_rels_name = None
-        self.city_name = None
+    def __init__(self, graph_analis_context: GraphAnalisContext):
+        super().__init__(graph_analis_context)
+        graph_analis_context.neo4j_DB_graph_parameters.secondary_node_name = self.get_second_node_name()
+        graph_analis_context.neo4j_DB_graph_parameters.secondary_rels_name = self.get_second_rels_name()
+        self.db_graph_parameters.secondary_node_name = self.get_second_node_name()
+        self.db_graph_parameters.secondary_rels_name = self.get_second_rels_name()
 
-    def update_db(self, city_name):
-        self.city_name_init(city_name)
-        self.first_node_name = self.get_first_node_name()
-        self.first_rels_name = self.get_first_rels_name()
-        self.node_name = self.get_first_node_name()
-        self.rels_name = self.get_first_rels_name()
-        self.second_node_name = self.get_second_node_name()
-        self.second_rels_name = self.get_second_rels_name()
-        (first_nodes, first_relationships, second_nodes, second_relationships) = self.get_graph(self.ru_city_name)
+    def update_db(self):
+        (first_nodes, first_relationships, second_nodes, second_relationships) = self.get_graph()
         if first_nodes is None and first_relationships is None and second_nodes is None and second_relationships is None:
-            print("Graph for", city_name, "is empty!")
+            print("Graph for", self.city_name, "is empty!")
             return
         self.connection.execute_write(self.create_constraints)
         self.connection.execute_write(insert_data, self.create_first_node_query(), first_nodes)
@@ -120,8 +110,8 @@ class TwoTypeNodeDBManager(GraphDBManager):
 
 
 class RoadBuildingsDbManager(TwoTypeNodeDBManager):
-    def get_road_graph(self, city_name):
-        g = ox.graph_from_place(city_name, simplify=True, retain_all=True, network_type="drive")
+    def get_road_graph(self):
+        g = ox.graph_from_place(self.city_name, simplify=True, retain_all=True, network_type="drive")
 
         gdf_nodes, gdf_relationships = ox.graph_to_gdfs(g)
         gdf_nodes.reset_index(inplace=True)
@@ -131,14 +121,14 @@ class RoadBuildingsDbManager(TwoTypeNodeDBManager):
 
         return gdf_nodes.drop(columns=["geometry"]), gdf_relationships.drop(columns=["geometry"])
 
-    def get_graph(self, city_name):
-        (road_nodes, road_relationships) = self.get_road_graph(city_name)
+    def get_graph(self):
+        (road_nodes, road_relationships) = self.get_road_graph()
         tree = quads.QuadTree((0, 0), 200, 200)
         road_geo_to_node = {quads.Point(float(road_node.x), float(road_node.y)): road_node for road_node in
                             road_nodes.itertuples()}
         for road_node in road_nodes.itertuples():
             tree.insert((float(road_node.x), float(road_node.y)))
-        buildings = pd.DataFrame(ox.geometries_from_place(city_name, tags={'building': True}))
+        buildings = pd.DataFrame(ox.geometries_from_place(self.city_name, tags={'building': True}))
         buildings = buildings.rename(columns={'addr:street': 'street', 'addr:housenumber': 'housenumber'})
         buildings_rels = []
         filtred_buildings = []
@@ -192,18 +182,19 @@ class RoadBuildingsDbManager(TwoTypeNodeDBManager):
 
     def get_constraint_list(self):
         return [
-            r"CREATE CONSTRAINT IF NOT EXISTS FOR (i:{}) REQUIRE i.osmid IS UNIQUE".format(self.first_node_name),
-            r"CREATE INDEX IF NOT EXISTS FOR ()-[r:{}]-() ON r.osmid".format(self.first_rels_name),
-            r"CREATE CONSTRAINT IF NOT EXISTS FOR (i:{}) REQUIRE i.uniq_building_name IS UNIQUE".format(
-                self.second_node_name),
-            r"CREATE INDEX IF NOT EXISTS FOR ()-[r:{}]-() ON r.uniq_building_road_name".format(self.second_rels_name),
+            r"CREATE CONSTRAINT IF NOT EXISTS FOR (i:{}) REQUIRE i.osmid IS UNIQUE".format(self.db_graph_parameters.main_node_name),
+            r"CREATE INDEX IF NOT EXISTS FOR ()-[r:{}]-() ON r.osmid".format(self.db_graph_parameters.main_rels_name),
+            r"CREATE CONSTRAINT IF NOT EXISTS FOR (i:{}) REQUIRE i.uniq_building_name IS UNIQUE"
+            .format(self.db_graph_parameters.secondary_node_name),
+            r"CREATE INDEX IF NOT EXISTS FOR ()-[r:{}]-() ON r.uniq_building_road_name"
+            .format(self.db_graph_parameters.secondary_rels_name),
         ]
 
     def create_first_node_query(self):
         return f'''
         UNWIND $rows AS row
         WITH row WHERE row.osmid IS NOT NULL
-        MERGE (i:{self.first_node_name} {{osmid: row.osmid}})
+        MERGE (i:{self.db_graph_parameters.main_node_name} {{osmid: row.osmid}})
             SET i.location = point({{latitude: row.y, longitude: row.x }}),
                 i.highway = row.highway,
                 i.tram = row.tram,
@@ -217,7 +208,7 @@ class RoadBuildingsDbManager(TwoTypeNodeDBManager):
         return f"""
         UNWIND $rows AS row
         WITH row WHERE row.uniq_building_name IS NOT NULL
-        MERGE (i:{self.second_node_name} {{uniq_building_name: row.uniq_building_name}})
+        MERGE (i:{self.db_graph_parameters.secondary_node_name} {{uniq_building_name: row.uniq_building_name}})
             SET i.building = row.building,
                 i.name = row.name,
                 i.street = row.street,
@@ -234,9 +225,9 @@ class RoadBuildingsDbManager(TwoTypeNodeDBManager):
     def create_first_relationships_query(self):
         return f'''
         UNWIND $rows AS path
-        MATCH (u:{self.first_node_name} {{osmid: path.u}})
-        MATCH (v:{self.first_node_name} {{osmid: path.v}})
-        MERGE (u)-[r:{self.first_rels_name} {{osmid: path.osmid}}]->(v)
+        MATCH (u:{self.db_graph_parameters.main_node_name} {{osmid: path.u}})
+        MATCH (v:{self.db_graph_parameters.main_node_name} {{osmid: path.v}})
+        MERGE (u)-[r:{self.db_graph_parameters.main_rels_name} {{osmid: path.osmid}}]->(v)
             SET r.name = path.name,
                 r.highway = path.highway,
                 r.railway = path.railway,
@@ -251,9 +242,9 @@ class RoadBuildingsDbManager(TwoTypeNodeDBManager):
     def create_second_relationships_query(self):
         return f'''
         UNWIND $rows AS path
-        MATCH (u:{self.first_node_name} {{osmid: path.intersect_osmid}})
-        MATCH (v:{self.second_node_name} {{ uniq_building_name: path.uniq_building_name}})
-        MERGE (u)-[r:{self.second_rels_name} {{uniq_building_road_name: path.uniq_building_road_name}}]->(v)
+        MATCH (u:{self.db_graph_parameters.main_node_name} {{osmid: path.intersect_osmid}})
+        MATCH (v:{self.db_graph_parameters.secondary_node_name} {{ uniq_building_name: path.uniq_building_name}})
+        MERGE (u)-[r:{self.db_graph_parameters.secondary_rels_name} {{uniq_building_road_name: path.uniq_building_road_name}}]->(v)
             SET r.intersect_osmid = path.intersect_osmid,
                 r.uniq_building_name = path.uniq_building_name,
                 r.length = toFloat(path.length)
@@ -261,24 +252,21 @@ class RoadBuildingsDbManager(TwoTypeNodeDBManager):
     '''
 
     def get_main_node_name(self):
-        return self.first_node_name
+        return self.get_main_node_name().replace('-', '')
 
     def get_main_rels_name(self):
-        return self.first_rels_name
+        return self.get_main_rels_name().replace('-', '')
 
     def get_weight(self):
         return "length"
 
 
 class OneTypeNodeDBManager(GraphDBManager):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, graph_analisis_context: GraphAnalisContext):
+        super().__init__(graph_analisis_context)
 
     def update_db(self, city_name):
-        self.city_name_init(city_name)
-        self.node_name = self.get_node_name()
-        self.rels_name = self.get_rels_name()
-        (nodes, relationships) = self.get_graph(self.ru_city_name)
+        (nodes, relationships) = self.get_graph()
         if nodes is None and relationships is None:
             print("Graph for", city_name, "is empty!")
             return
@@ -316,10 +304,10 @@ class OneTypeNodeDBManager(GraphDBManager):
             tx.run(constraint)
 
     def get_main_node_name(self):
-        return self.node_name
+        return self.get_node_name().replace('-', '')
 
     def get_main_rels_name(self):
-        return self.rels_name
+        return self.get_rels_name().replace('-', '')
 
     @abstractmethod
     def get_constraint_list(self):
@@ -339,7 +327,7 @@ class TransportNetworkGraphDBManager(OneTypeNodeDBManager):
         return f'''
             UNWIND $rows AS row
             WITH row WHERE row.name IS NOT NULL
-            MERGE (s:{self.node_name} {{name: row.name}})
+            MERGE (s:{self.db_graph_parameters.main_node_name} {{name: row.name}})
                 SET s.location = point({{latitude: row.yCoordinate, longitude: row.xCoordinate }}),
                     s.roteList = row.roteList,
                     s.isCoordinateApproximate = row.isCoordinateApproximate
@@ -349,9 +337,9 @@ class TransportNetworkGraphDBManager(OneTypeNodeDBManager):
     def create_relationships_query(self):
         return f'''
             UNWIND $rows AS path
-            MATCH (u:{self.node_name} {{name: path.startStop}})
-            MATCH (v:{self.node_name} {{name: path.endStop}})
-            MERGE (u)-[r:{self.rels_name} {{name: path.name}}]->(v)
+            MATCH (u:{self.db_graph_parameters.main_node_name} {{name: path.startStop}})
+            MATCH (v:{self.db_graph_parameters.main_node_name} {{name: path.endStop}})
+            MERGE (u)-[r:{self.db_graph_parameters.main_rels_name} {{name: path.name}}]->(v)
                 SET r.duration = path.duration,
                     r.route = path.route
             RETURN COUNT(*) AS total
@@ -371,7 +359,7 @@ class TransportNetworkGraphDBManager(OneTypeNodeDBManager):
 
     def get_bd_all_rels_query_graph(self):
         return f'''
-        MATCH (u:Stop)-[r:{self.rels_name}]->(v:Stop) 
+        MATCH (u:Stop)-[r:{self.db_graph_parameters.main_rels_name}]->(v:Stop) 
         RETURN
             u.name AS first_stop_name, 
             v.name AS second_stop_name, 
@@ -380,12 +368,12 @@ class TransportNetworkGraphDBManager(OneTypeNodeDBManager):
 
     def get_constraint_list(self):
         return [
-            f"CREATE CONSTRAINT IF NOT EXISTS FOR (s:{self.node_name}) REQUIRE s.name IS UNIQUE",
-            f"CREATE INDEX IF NOT EXISTS FOR ()-[r:{self.rels_name}]-() ON r.name"
+            f"CREATE CONSTRAINT IF NOT EXISTS FOR (s:{self.db_graph_parameters.main_node_name}) REQUIRE s.name IS UNIQUE",
+            f"CREATE INDEX IF NOT EXISTS FOR ()-[r:{self.db_graph_parameters.main_rels_name}]-() ON r.name"
         ]
 
     @abstractmethod
-    def get_graph(self, city_name):
+    def get_graph(self):
         pass
 
     @abstractmethod
@@ -403,8 +391,8 @@ class TransportNetworkGraphDBManager(OneTypeNodeDBManager):
 
 class RoadGraphDBManager(OneTypeNodeDBManager):
 
-    def get_graph(self, city_name):
-        g = ox.graph_from_place(city_name, simplify=True, retain_all=True, network_type="drive")
+    def get_graph(self):
+        g = ox.graph_from_place(self.city_name, simplify=True, retain_all=True, network_type="drive")
 
         gdf_nodes, gdf_relationships = ox.graph_to_gdfs(g)
         gdf_nodes.reset_index(inplace=True)
@@ -418,7 +406,7 @@ class RoadGraphDBManager(OneTypeNodeDBManager):
         return f'''
         UNWIND $rows AS row
         WITH row WHERE row.osmid IS NOT NULL
-        MERGE (i:{self.node_name} {{osmid: row.osmid}})
+        MERGE (i:{self.db_graph_parameters.main_node_name} {{osmid: row.osmid}})
             SET i.location = point({{latitude: row.y, longitude: row.x }}),
                 i.highway = row.highway,
                 i.tram = row.tram,
@@ -431,9 +419,9 @@ class RoadGraphDBManager(OneTypeNodeDBManager):
     def create_relationships_query(self):
         return f'''
         UNWIND $rows AS path
-        MATCH (u:{self.node_name} {{osmid: path.u}})
-        MATCH (v:{self.node_name} {{osmid: path.v}})
-        MERGE (u)-[r:{self.rels_name} {{osmid: path.osmid}}]->(v)
+        MATCH (u:{self.db_graph_parameters.main_node_name} {{osmid: path.u}})
+        MATCH (v:{self.db_graph_parameters.main_node_name} {{osmid: path.v}})
+        MERGE (u)-[r:{self.db_graph_parameters.main_rels_name} {{osmid: path.osmid}}]->(v)
             SET r.name = path.name,
                 r.highway = path.highway,
                 r.railway = path.railway,
@@ -447,13 +435,13 @@ class RoadGraphDBManager(OneTypeNodeDBManager):
 
     def get_constraint_list(self):
         return [
-            f"CREATE CONSTRAINT IF NOT EXISTS FOR (i:{self.node_name}) REQUIRE i.osmid IS UNIQUE",
-            f"CREATE INDEX IF NOT EXISTS FOR ()-[r:{self.rels_name}]-() ON r.osmid"
+            f"CREATE CONSTRAINT IF NOT EXISTS FOR (i:{self.db_graph_parameters.main_node_name}) REQUIRE i.osmid IS UNIQUE",
+            f"CREATE INDEX IF NOT EXISTS FOR ()-[r:{self.db_graph_parameters.main_rels_name}]-() ON r.osmid"
         ]
 
     def get_bd_all_node_query_graph(self):
         return f'''
-        MATCH (s:{self.node_name})
+        MATCH (s:{self.db_graph_parameters.main_node_name})
         RETURN 
             ID(s) AS id,
             s.highway AS highway,
@@ -467,7 +455,7 @@ class RoadGraphDBManager(OneTypeNodeDBManager):
 
     def get_bd_all_rels_query_graph(self):
         return f'''
-        MATCH (u:{self.node_name})-[r:{self.rels_name}]->(v:{self.node_name}) 
+        MATCH (u:{self.db_graph_parameters.main_node_name})-[r:{self.db_graph_parameters.main_rels_name}]->(v:{self.db_graph_parameters.main_node_name}) 
         RETURN
             u.osmid AS first_osmid, 
             v.osmid AS second_osmid, 
@@ -490,14 +478,14 @@ class RoadGraphDBManager(OneTypeNodeDBManager):
     def get_weight(self):
         return "length"
 
-    def node_identity(self):
+    def node_geometry_identity(self):
         return "geometry_wkt"
 
 
 class BusGraphDBManager(TransportNetworkGraphDBManager):
 
-    def get_graph(self, city_name):
-        parser = BusGraphParser(city_name)
+    def get_graph(self):
+        parser = BusGraphParser(self.city_name)
         (nodes, relationships) = parser.parse()
         return list(nodes.values()), relationships
 
@@ -510,10 +498,13 @@ class BusGraphDBManager(TransportNetworkGraphDBManager):
     def get_weight(self):
         return "duration"
 
+    def node_geometry_identity(self):
+        return "location"
+
 
 class TrolleyGraphDBManager(TransportNetworkGraphDBManager):
-    def get_graph(self, city_name):
-        parser = TrolleyGraphParser(city_name)
+    def get_graph(self):
+        parser = TrolleyGraphParser(self.city_name)
         (nodes, relationships) = parser.parse()
         return list(nodes.values()), relationships
 
@@ -528,8 +519,8 @@ class TrolleyGraphDBManager(TransportNetworkGraphDBManager):
 
 
 class TramGraphDBManager(TransportNetworkGraphDBManager):
-    def get_graph(self, city_name):
-        parser = TramGraphParser(city_name)
+    def get_graph(self):
+        parser = TramGraphParser(self.city_name)
         (nodes, relationships) = parser.parse()
         return list(nodes.values()), relationships
 
@@ -544,8 +535,8 @@ class TramGraphDBManager(TransportNetworkGraphDBManager):
 
 
 class MiniBusGraphDBManager(TransportNetworkGraphDBManager):
-    def get_graph(self, city_name):
-        parser = MiniBusGraphParser(city_name)
+    def get_graph(self):
+        parser = MiniBusGraphParser(self.city_name)
         (nodes, relationships) = parser.parse()
         return list(nodes.values()), relationships
 

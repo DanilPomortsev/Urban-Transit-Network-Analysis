@@ -11,24 +11,12 @@ class MetricsCalculate:
         self.write_property = write_property
         self.connection = Neo4jConnection()
 
-    def metric_calculate(self, graph_name, relationship_weight_property, node_name, relationship_name):
-        self.__make_graph(graph_name, node_name, relationship_name, relationship_weight_property)
+    def metric_calculate(
+            self,
+            graph_name,
+            relationship_weight_property
+    ):
         self.__metric_calculate(graph_name, relationship_weight_property)
-
-    def __make_graph(self, graph_name, node_name, relationship_name, relationship_weight_property):
-        query = f'''
-            CALL gds.graph.project(
-            '{graph_name}',
-            '{node_name}',
-            {{
-                {relationship_name}: {{
-                    orientation: 'UNDIRECTED',
-                    properties: '{relationship_weight_property}'
-                }}
-            }}
-        )
-        '''
-        self.connection.run(query)
 
     def __metric_calculate(self, graph_name, weight_property):
         query = f'''

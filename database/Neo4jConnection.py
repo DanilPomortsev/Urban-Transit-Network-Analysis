@@ -1,4 +1,6 @@
 from neo4j import GraphDatabase
+import os
+from dotenv import load_dotenv
 
 """
     Класс содержащий логику работы с бд neo4j
@@ -6,17 +8,16 @@ from neo4j import GraphDatabase
 
 
 class Neo4jConnection:
+    def __init__(self):
+        load_dotenv()
 
-    # TODO move settings to some file or class
-    def __init__(self, uri="bolt://localhost:7687", user="neo4j", pwd="123456789"):
-
-        self.__uri = uri
-        self.__user = user
-        self.__pwd = pwd
+        self.__uri = os.environ.get("GRAPH_DATABASE_URL")
+        self.__user = os.environ.get("GRAPH_DATABASE_USER")
+        self.__pwd = os.environ.get("GRAPH_DATABASE_PASSWORD")
         self.__driver = None
 
         try:
-            self.__driver = GraphDatabase.driver(uri, auth=(user, pwd))
+            self.__driver = GraphDatabase.driver(self.__uri, auth=(self.__user, self.__pwd))
         except Exception as e:
             print("Failed to create the driver:", e)
 
@@ -40,7 +41,7 @@ class Neo4jConnection:
             if session is not None:
                 session.close()
 
-    def execute_query(self, query, needLog=False):
+    def execute_query(self, query, needLog=True):
         assert self.__driver is not None, "Driver not initialized!"
         session = None
 
